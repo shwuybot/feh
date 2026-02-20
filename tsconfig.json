@@ -25,5 +25,5 @@
     "outDir": "./dist",
     "esModuleInterop": true
   },
-  "exclude": ["src/server.ts"]
+  "exclude": ["src/server.ts", "dist", "node_modules"]
 }

@@ -55,6 +55,12 @@ app.get('/error', (_, reply) => reply.error(500, { message: 'something went wron
 - `{ kind: 'error', status, error }`
 - `{ kind: 'status', status, payload }`
 
+Default behavior when `format` is not provided:
+
+- `reply.error(status, { message })` → `{ error: { message } }`
+- `reply.status(status, payload)` → returns `payload` as-is
+- `reply.status(204, payload)` → sends no body (`204 No Content`)
+
 Use `format(input)` for all custom response formatting.
 
 ### License

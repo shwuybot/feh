@@ -33,39 +33,43 @@ declare module 'fastify' {
 const DEFAULT_ERROR_FORMATTER = (_: number, error: ErrorOptions) => ({ error });
 const DEFAULT_STATUS_FORMATTER = (_: number, payload: unknown) => payload;
 
-function formatErrorPayload(status: number, error: ErrorOptions, plugin: PluginOptions) {
-  if (typeof plugin.format !== 'undefined') {
-    return plugin.format({ kind: 'error', status, error });
+function formatErrorPayload(status: number, error: ErrorOptions, options: PluginOptions) {
+  if (typeof options.format !== 'undefined') {
+    return options.format({ kind: 'error', status, error });
   }
 
   return DEFAULT_ERROR_FORMATTER(status, error);
 }
 
-function formatStatusPayload(status: number, payload: unknown, plugin: PluginOptions) {
-  if (typeof plugin.format !== 'undefined') {
-    return plugin.format({ kind: 'status', status, payload });
+function formatStatusPayload(status: number, payload: unknown, options: PluginOptions) {
+  if (typeof options.format !== 'undefined') {
+    return options.format({ kind: 'status', status, payload });
   }
 
   return DEFAULT_STATUS_FORMATTER(status, payload);
 }
 
-function patchStatusReplyMethod(reply: FastifyReply, plugin: PluginOptions) {
+function patchStatusReplyMethod(reply: FastifyReply, options: PluginOptions) {
   const originalStatus = reply.status.bind(reply) as StatusReplyMethod;
 
   reply.status = function patchedStatus(code: number, payload?: unknown) {
     const response = originalStatus(code);
 
     if (arguments.length >= 2) {
-      return response.send(formatStatusPayload(code, payload, plugin));
+      if (code === 204) {
+        return response.send();
+      }
+
+      return response.send(formatStatusPayload(code, payload, options));
     }
 
     return response;
   } as StatusReplyMethod;
 }
 
-async function plugin(fastify: FastifyInstance, plugin: PluginOptions) {
+async function plugin(fastify: FastifyInstance, options: PluginOptions) {
   fastify.addHook('onRequest', (_, reply, done) => {
-    patchStatusReplyMethod(reply, plugin);
+    patchStatusReplyMethod(reply, options);
     done();
   });
 
@@ -73,8 +77,8 @@ async function plugin(fastify: FastifyInstance, plugin: PluginOptions) {
    * Obs.: the anonymous function must not be an arrow function,
    * probably because of the way the Fastify uses `this` context.
    */
-  fastify.decorateReply('error', function (this, status, options) {
-    return this.status(status).send(formatErrorPayload(status, options, plugin));
+  fastify.decorateReply('error', function (this: FastifyReply, status: number, error: ErrorOptions) {
+    return this.status(status).send(formatErrorPayload(status, error, options));
   });
 }
 
